@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT-AutoPilot Pro - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-rocket"></i>
+                    <span>YT-AutoPilot Pro</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#videos" class="nav-item" data-page="videos">
+                    <i class="fas fa-video"></i>
+                    <span>Videos</span>
+                </a>
+                <a href="#categories" class="nav-item" data-page="categories">
+                    <i class="fas fa-layer-group"></i>
+                    <span>Categories</span>
+                </a>
+                <a href="#analytics" class="nav-item" data-page="analytics">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="#settings" class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-info" id="userInfo">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="user-details">
+                        <span class="user-name">Guest</span>
+                        <span class="user-status">Not Connected</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <button class="menu-toggle" id="menuToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title" id="pageTitle">Dashboard</h1>
+                <div class="header-actions">
+                    <button class="btn btn-refresh" id="refreshBtn" title="Refresh Data">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <div class="connection-status" id="connectionStatus">
+                        <span class="status-dot offline"></span>
+                        <span class="status-text">Offline</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Dashboard Page -->
+                <div class="page active" id="dashboard-page">
+                    <!-- Auth Section -->
+                    <div class="auth-section" id="authSection">
+                        <div class="auth-card">
+                            <div class="auth-icon">
+                                <i class="fab fa-youtube"></i>
+                            </div>
+                            <h2>Connect Your YouTube Channel</h2>
+                            <p>YT-AutoPilot Pro needs access to your YouTube channel to upload videos automatically.</p>
+                            <button class="btn btn-youtube" id="connectYouTubeBtn">
+                                <i class="fab fa-youtube"></i>
+                                Connect with YouTube
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stats Grid (Hidden until connected) -->
+                    <div class="stats-grid" id="statsGrid" style="display: none;">
+                        <div class="stat-card">
+                            <div class="stat-icon blue">
+                                <i class="fas fa-video"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="totalVideos">-</span>
+                                <span class="stat-label">Total Videos</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="successRate">-</span>
+                                <span class="stat-label">Success Rate</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon purple">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="nextUpload">-</span>
+                                <span class="stat-label">Next Upload</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon orange">
+                                <i class="fas fa-fire"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="currentStreak">-</span>
+                                <span class="stat-label">Day Streak</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Status (Hidden until connected) -->
+                    <div class="status-section" id="statusSection" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-info-circle"></i> Current Status</h3>
+                                <span class="badge" id="systemStatus">Checking...</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="status-item">
+                                    <span class="status-label">Current Category:</span>
+                                    <span class="status-value" id="currentCategory">-</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Next Episode:</span>
+                                    <span class="status-value" id="nextEpisode">-</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Last Upload:</span>
+                                    <span class="status-value" id="lastUpload">-</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">GitHub Actions:</span>
+                                    <span class="status-value" id="githubStatus">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Videos (Hidden until connected) -->
+                    <div class="recent-videos" id="recentVideosSection" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-history"></i> Recent Videos</h3>
+                                <a href="#videos" class="view-all">View All</a>
+                            </div>
+                            <div class="card-body">
+                                <div class="video-list" id="recentVideoList">
+                                    <div class="loading">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Videos Page -->
+                <div class="page" id="videos-page">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-video"></i> All Videos</h3>
+                            <div class="header-actions">
+                                <input type="search" class="search-input" placeholder="Search videos..." id="videoSearch">
+                                <select class="filter-select" id="videoFilter">
+                                    <option value="all">All Videos</option>
+                                    <option value="long">Long Form</option>
+                                    <option value="short">Shorts</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="video-grid" id="videoGrid">
+                                <div class="loading">Loading videos...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Categories Page -->
+                <div class="page" id="categories-page">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-layer-group"></i> Content Categories</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="categories-list" id="categoriesList">
+                                <div class="loading">Loading categories...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Page -->
+                <div class="page" id="analytics-page">
+                    <div class="stats-grid">
+                        <div class="stat-card wide">
+                            <div class="stat-icon blue">
+                                <i class="fas fa-chart-bar"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="totalViews">-</span>
+                                <span class="stat-label">Total Views</span>
+                            </div>
+                        </div>
+                        <div class="stat-card wide">
+                            <div class="stat-icon red">
+                                <i class="fas fa-heart"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="totalLikes">-</span>
+                                <span class="stat-label">Total Likes</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> Upload History</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="uploadChart" width="800" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Page -->
+                <div class="page" id="settings-page">
+                    <div class="settings-grid">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-bell"></i> Notifications</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <span class="setting-name">Discord Webhook</span>
+                                        <span class="setting-desc">Get notifications on Discord</span>
+                                    </div>
+                                    <input type="text" class="setting-input" id="discordWebhook" placeholder="https://discord.com/api/webhooks/...">
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <span class="setting-name">Slack Webhook</span>
+                                        <span class="setting-desc">Get notifications on Slack</span>
+                                    </div>
+                                    <input type="text" class="setting-input" id="slackWebhook" placeholder="https://hooks.slack.com/...">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-clock"></i> Schedule</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <span class="setting-name">Upload Time</span>
+                                        <span class="setting-desc">Daily upload time (IST)</span>
+                                    </div>
+                                    <input type="time" class="setting-input" id="uploadTime" value="17:00">
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <span class="setting-name">Backup Check</span>
+                                        <span class="setting-desc">Fail-safe backup trigger time</span>
+                                    </div>
+                                    <input type="time" class="setting-input" id="backupTime" value="17:05">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-video"></i> Video Settings</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <span class="setting-name">Long Video Length</span>
+                                        <span class="setting-desc">Target duration in minutes</span>
+                                    </div>
+                                    <input type="number" class="setting-input" id="longDuration" value="14" min="10" max="20">
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <span class="setting-name">Short Video Length</span>
+                                        <span class="setting-desc">Target duration in seconds</span>
+                                    </div>
+                                    <input type="number" class="setting-input" id="shortDuration" value="45" min="30" max="60">
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <span class="setting-name">Privacy Status</span>
+                                        <span class="setting-desc">Default video visibility</span>
+                                    </div>
+                                    <select class="setting-input" id="privacyStatus">
+                                        <option value="public">Public</option>
+                                        <option value="unlisted">Unlisted</option>
+                                        <option value="private">Private</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="danger-actions">
+                                    <button class="btn btn-danger" id="pauseAutomationBtn">
+                                        <i class="fas fa-pause"></i>
+                                        Pause Automation
+                                    </button>
+                                    <button class="btn btn-danger" id="resetEpisodeBtn">
+                                        <i class="fas fa-redo"></i>
+                                        Reset Episode Counter
+                                    </button>
+                                    <button class="btn btn-danger" id="disconnectYouTubeBtn">
+                                        <i class="fab fa-youtube"></i>
+                                        Disconnect YouTube
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <span>Loading...</span>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
+</body>
+</html>
