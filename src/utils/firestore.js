@@ -66,6 +66,26 @@ async function getCurrentEpisode() {
   }
 }
 
+async function saveUserTokens(userId, data) {
+  const db = getFirestore();
+
+  try {
+    const docRef = db.collection('userTokens').doc(userId);
+
+    await docRef.set({
+      ...data,
+      savedAt: new Date().toISOString()
+    }, { merge: true });
+
+    console.log('✅ User tokens saved');
+    return true;
+
+  } catch (error) {
+    console.error('❌ Error saving user tokens:', error);
+    throw error;
+  }
+}
+
 async function getMainCategories() {
   /**
    * Get list of main categories
@@ -277,5 +297,6 @@ module.exports = {
   getWorkflowStatus,
   updateVideoStatus,
   getVideosByDate,
-  getLongVideoForShorts
+  getLongVideoForShorts,
+  saveUserTokens // 👈 ADD THIS
 };
