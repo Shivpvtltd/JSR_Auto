@@ -7,7 +7,7 @@ const express = require('express');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
-const logger = require('./logger');
+const logger = require('../logger');
 const router = express.Router();
 
 // Configure Passport Google Strategy
