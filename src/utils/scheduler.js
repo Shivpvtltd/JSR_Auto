@@ -4,7 +4,7 @@
  */
 
 const cron = require('node-cron');
-const { logger } = require('../server');
+const logger = require('./logger');
 const { updateVideoVisibility } = require('./youtube');
 const { updateEpisodeStatus, addScheduledPublish, markPublishCompleted } = require('./firestore');
 const { notifyWebhook } = require('./notifications');
