@@ -3,7 +3,7 @@
  */
 
 const admin = require('firebase-admin');
-const { logger } = require('../server');
+const logger = require('./logger');
 
 let firebaseInitialized = false;
 
