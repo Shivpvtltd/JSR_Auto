@@ -37,21 +37,6 @@ const { initializeScheduler } = require('./utils/scheduler');
 const { notifyWebhook } = require('./utils/notifications');
 const logger = require('./utils/logger');
 
-// Initialize logger
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' })
-  ]
-});
-
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
