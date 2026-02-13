@@ -35,6 +35,7 @@ const { checkSystemHealth } = require('./utils/health');
 const { scheduleBackupCheck } = require('./utils/backup');
 const { initializeScheduler } = require('./utils/scheduler');
 const { notifyWebhook } = require('./utils/notifications');
+const logger = require('./utils/logger');
 
 // Initialize logger
 const logger = winston.createLogger({
