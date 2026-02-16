@@ -8,6 +8,8 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { saveUserTokens } = require('../utils/firestore');
 
 // Configure Google OAuth Strategy
+const axios = require('axios');
+
 passport.use(new GoogleStrategy({
   clientID: process.env.YOUTUBE_CLIENT_ID,
   clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
@@ -20,28 +22,56 @@ passport.use(new GoogleStrategy({
   ]
 }, async (accessToken, refreshToken, profile, done) => {
   try {
-    // Save tokens to Firestore
-    await saveUserTokens('default', {
-      accessToken,
-      refreshToken,
-      profile: {
-        id: profile.id,
-        displayName: profile.displayName,
-        emails: profile.emails
-      },
+    console.log('🔐 OAuth success, fetching YouTube channel ID...');
+
+    // Fetch YouTube channel ID using accessToken
+    const ytResponse = await axios.get(
+      'https://youtube.googleapis.com/youtube/v3/channels',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        },
+        params: {
+          part: 'id,snippet',
+          mine: true
+        }
+      }
+    );
+
+    if (!ytResponse.data.items || ytResponse.data.items.length === 0) {
+      throw new Error('No YouTube channel found for this account');
+    }
+
+    const channel = ytResponse.data.items[0];
+    const channelId = channel.id;
+    const channelName = channel.snippet.title;
+
+    console.log(`📺 YouTube Channel Found: ${channelName} (${channelId})`);
+
+    // Save tokens to Firestore using channelId as document ID
+    await saveUserTokens(channelId, {
+      channelId: channelId,
+      googleUserId: profile.id,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      name: channelName,
+      email: profile.emails?.[0]?.value || null,
+      picture: profile.photos?.[0]?.value || null,
+      connectedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
-    
-    console.log('✅ YouTube OAuth successful:', profile.displayName);
-    
+
+    console.log('✅ Tokens saved to Firestore with channel ID');
+
     return done(null, {
-      id: profile.id,
-      displayName: profile.displayName,
+      id: channelId,
+      displayName: channelName,
       accessToken,
       refreshToken
     });
+
   } catch (error) {
-    console.error('❌ OAuth error:', error);
+    console.error('❌ OAuth error:', error.message);
     return done(error, null);
   }
 }));
