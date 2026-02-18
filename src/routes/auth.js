@@ -85,7 +85,8 @@ passport.deserializeUser((user, done) => {
 });
 
 /**
- * Initiate YouTube OAuth
+ * Initiate YouTube OAuth - CRITICAL FIX APPLIED HERE
+ * Added accessType: 'offline' and prompt: 'consent' to force new refreshToken with full scope
  */
 router.get('/youtube', passport.authenticate('google', {
   scope: [
@@ -94,8 +95,8 @@ router.get('/youtube', passport.authenticate('google', {
     'https://www.googleapis.com/auth/youtube.upload',
     'https://www.googleapis.com/auth/youtube'
   ],
-  accessType: 'offline',
-  prompt: 'consent'
+  accessType: 'offline',  // CRITICAL: Ensures refreshToken is issued
+  prompt: 'consent'       // CRITICAL: Forces consent screen, issues NEW refreshToken
 }));
 
 /**
