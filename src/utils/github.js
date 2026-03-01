@@ -11,31 +11,39 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
 /**
  * Trigger GitHub Actions workflow
+ * Updated for multi-channel support
  */
 async function triggerGitHubWorkflow({
-  runId,
-  category,
-  subCategory,
+  run_id,
+  main_category,
+  sub_category,
   episode,
-  episodeData, // kept for compatibility — not sent to GitHub
-  isRetry = false,
+  channel_id,
+  channel_index = 0,
+  is_retry = false,
   attempt = 1
 }) {
   try {
     const url = `${GITHUB_API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/main.yml/dispatches`;
 
+    const inputs = {
+      run_id: run_id || `run_${Date.now()}`,
+      main_category: main_category,
+      sub_category: sub_category,
+      episode: episode.toString(),
+      channel_id: channel_id || '',
+      channel_index: channel_index.toString(),
+      is_retry: is_retry.toString(),
+      attempt: attempt.toString()
+    };
+
+    console.log('🚀 Triggering GitHub workflow with inputs:', inputs);
+
     const response = await axios.post(
       url,
       {
         ref: 'main',
-        inputs: {
-          run_id: runId || `run_${Date.now()}`,
-          main_category: category,
-          sub_category: subCategory,
-          episode: episode.toString(),
-          is_retry: isRetry.toString(),
-          attempt: attempt.toString()
-        }
+        inputs
       },
       {
         headers: {
@@ -50,7 +58,7 @@ async function triggerGitHubWorkflow({
 
     return {
       success: true,
-      runId: runId || `run_${Date.now()}`,
+      runId: inputs.run_id,
       status: response.status
     };
   } catch (error) {
