@@ -1,35 +1,40 @@
 /**
  * Firestore Database Operations
+ * Updated for Multi-Channel Support
  */
 const { getFirestore } = require('./firebase');
 
-async function getCurrentEpisode() {
+async function getCurrentEpisode(channelId) {
   /**
-   * Get the next episode to generate
+   * Get the next episode to generate for a specific channel
    */
   const db = getFirestore();
   
   try {
-    // Get the latest episode
+    // Get the latest episode for this channel
     const snapshot = await db.collection('episodes')
+      .where('channelId', '==', channelId)
       .orderBy('episode', 'desc')
       .limit(1)
       .get();
     
     if (snapshot.empty) {
-      // No episodes yet - return default
+      // No episodes yet for this channel - return default
       return {
         mainCategory: 'Human Psychology & Behavior',
         subCategory: 'Dark Psychology',
-        episode: 1
+        episode: 1,
+        channelId
       };
     }
     
     const latestEpisode = snapshot.docs[0].data();
     const nextEpisode = latestEpisode.episode + 1;
     
-    // Check if we need to move to next sub-category
+    // Get categories for rotation
+    const categories = await getMainCategories();
     const subCategories = await getSubCategories(latestEpisode.mainCategory);
+    
     const currentSubIndex = subCategories.indexOf(latestEpisode.subCategory);
     
     let nextSubCategory = latestEpisode.subCategory;
@@ -37,14 +42,13 @@ async function getCurrentEpisode() {
     
     if (currentSubIndex >= subCategories.length - 1) {
       // Move to next main category
-      const mainCategories = await getMainCategories();
-      const currentMainIndex = mainCategories.indexOf(latestEpisode.mainCategory);
+      const currentMainIndex = categories.indexOf(latestEpisode.mainCategory);
       
-      if (currentMainIndex >= mainCategories.length - 1) {
+      if (currentMainIndex >= categories.length - 1) {
         // Cycle back to first
-        nextMainCategory = mainCategories[0];
+        nextMainCategory = categories[0];
       } else {
-        nextMainCategory = mainCategories[currentMainIndex + 1];
+        nextMainCategory = categories[currentMainIndex + 1];
       }
       
       const newSubCategories = await getSubCategories(nextMainCategory);
@@ -57,6 +61,7 @@ async function getCurrentEpisode() {
       mainCategory: nextMainCategory,
       subCategory: nextSubCategory,
       episode: nextEpisode,
+      channelId,
       previousEpisode: latestEpisode.episode
     };
     
@@ -66,11 +71,11 @@ async function getCurrentEpisode() {
   }
 }
 
-async function saveUserTokens(userId, data) {
+async function saveUserTokens(channelId, data) {
   const db = getFirestore();
 
   try {
-    const docRef = db.collection('userTokens').doc(userId);
+    const docRef = db.collection('userTokens').doc(channelId);
 
     await docRef.set({
       ...data,
@@ -86,6 +91,100 @@ async function saveUserTokens(userId, data) {
   }
 }
 
+async function getUserChannels(userEmail) {
+  /**
+   * Get all channels for a user
+   */
+  const db = getFirestore();
+  
+  try {
+    const userDoc = await db.collection('users').doc(userEmail).get();
+    if (!userDoc.exists) {
+      return [];
+    }
+    
+    const userData = userDoc.data();
+    const channelIds = userData.channels || [];
+    
+    const channels = [];
+    for (const channelId of channelIds) {
+      const channelDoc = await db.collection('channels').doc(channelId).get();
+      if (channelDoc.exists) {
+        channels.push({
+          channelId,
+          ...channelDoc.data()
+        });
+      }
+    }
+    
+    return channels;
+  } catch (error) {
+    console.error('❌ Error getting user channels:', error);
+    return [];
+  }
+}
+
+async function getActiveChannels() {
+  /**
+   * Get all active channels across all users
+   */
+  const db = getFirestore();
+  
+  try {
+    const snapshot = await db.collection('channels')
+      .where('isActive', '==', true)
+      .get();
+    
+    return snapshot.docs.map(doc => ({
+      channelId: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('❌ Error getting active channels:', error);
+    return [];
+  }
+}
+
+async function getChannelVoiceFile(channelId, channelIndex = 0) {
+  /**
+   * Get voice file for a channel
+   * Returns voice file path or randomly selects from available voices
+   */
+  const db = getFirestore();
+  
+  try {
+    const channelDoc = await db.collection('channels').doc(channelId).get();
+    if (channelDoc.exists) {
+      const channelData = channelDoc.data();
+      if (channelData.voiceFile) {
+        return channelData.voiceFile;
+      }
+    }
+    
+    // Default voice selection based on channel index
+    // In production, this would scan the voices directory
+    const defaultVoices = [
+      'voices/voice1.wav',
+      'voices/voice2.wav',
+      'voices/voice3.wav',
+      'voices/voice4.wav',
+      'voices/voice5.wav'
+    ];
+    
+    // Try to get voice based on channel index
+    if (channelIndex < defaultVoices.length) {
+      return defaultVoices[channelIndex];
+    }
+    
+    // Random fallback
+    return defaultVoices[Math.floor(Math.random() * defaultVoices.length)];
+    
+  } catch (error) {
+    console.error('❌ Error getting channel voice file:', error);
+    return 'voices/my_voice.wav';
+  }
+}
+
 async function getMainCategories() {
   /**
    * Get list of main categories
@@ -98,7 +197,11 @@ async function getMainCategories() {
     'Education System Exposed',
     'Society Reality',
     'Communication Mastery',
-    'Human Life Reality'
+    'Human Life Reality',
+    'Mythology',
+    'Health & Wellness',
+    'Personal Finance',
+    'Technology & Future'
   ];
 }
 
@@ -154,6 +257,30 @@ async function getSubCategories(mainCategory) {
       'Relations Marketplace',
       'Emotional Manipulation',
       'Real Way of Living'
+    ],
+    'Mythology': [
+      'Mahabharat Hidden Secrets',
+      'Ramayan Life Lessons',
+      'Vedic Science Facts',
+      'Temple Mysteries'
+    ],
+    'Health & Wellness': [
+      'Ayurvedic Wisdom',
+      'Mental Health Awareness',
+      'Fitness Mindset',
+      'Sleep Science'
+    ],
+    'Personal Finance': [
+      'Saving Psychology',
+      'Investment Basics',
+      'Debt Trap Reality',
+      'Path to Financial Freedom'
+    ],
+    'Technology & Future': [
+      'AI Impact on Life',
+      'Digital Privacy',
+      'Social Media Psychology',
+      'Future of Jobs'
     ]
   };
   
@@ -233,7 +360,7 @@ async function updateVideoStatus(videoId, data) {
   }
 }
 
-async function getVideosByDate(date, type = null) {
+async function getVideosByDate(date, channelId = null) {
   /**
    * Get videos by upload date
    */
@@ -243,8 +370,8 @@ async function getVideosByDate(date, type = null) {
     let query = db.collection('videos')
       .where('uploadDate', '==', date);
     
-    if (type) {
-      query = query.where('type', '==', type);
+    if (channelId) {
+      query = query.where('channelId', '==', channelId);
     }
     
     const snapshot = await query.get();
@@ -260,32 +387,26 @@ async function getVideosByDate(date, type = null) {
   }
 }
 
-async function getLongVideoForShorts(date) {
+async function saveEpisode(data) {
   /**
-   * Get today's long video for linking in shorts
+   * Save episode information
    */
   const db = getFirestore();
   
   try {
-    const snapshot = await db.collection('videos')
-      .where('uploadDate', '==', date)
-      .where('type', '==', 'long')
-      .limit(1)
-      .get();
+    const docRef = db.collection('episodes').doc(`${data.channelId}_${data.episode}`);
     
-    if (snapshot.empty) {
-      return null;
-    }
+    await docRef.set({
+      ...data,
+      createdAt: new Date().toISOString()
+    });
     
-    const doc = snapshot.docs[0];
-    return {
-      videoId: doc.id,
-      ...doc.data()
-    };
+    console.log(`✅ Episode saved: ${data.channelId} - Episode ${data.episode}`);
+    return true;
     
   } catch (error) {
-    console.error('❌ Error getting long video:', error);
-    return null;
+    console.error('❌ Error saving episode:', error);
+    throw error;
   }
 }
 
@@ -297,6 +418,9 @@ module.exports = {
   getWorkflowStatus,
   updateVideoStatus,
   getVideosByDate,
-  getLongVideoForShorts,
-  saveUserTokens // 👈 ADD THIS
+  saveUserTokens,
+  getUserChannels,
+  getActiveChannels,
+  getChannelVoiceFile,
+  saveEpisode
 };
