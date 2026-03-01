@@ -10,7 +10,7 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
+        <!-- Sidebar (Hidden until logged in) -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
@@ -23,6 +23,10 @@
                 <a href="#dashboard" class="nav-item active" data-page="dashboard">
                     <i class="fas fa-home"></i>
                     <span>Dashboard</span>
+                </a>
+                <a href="#channels" class="nav-item" data-page="channels">
+                    <i class="fab fa-youtube"></i>
+                    <span>My Channels</span>
                 </a>
                 <a href="#videos" class="nav-item" data-page="videos">
                     <i class="fas fa-video"></i>
@@ -48,301 +52,404 @@
                         <i class="fas fa-user"></i>
                     </div>
                     <div class="user-details">
-                        <span class="user-name">Guest</span>
-                        <span class="user-status">Not Connected</span>
+                        <span class="user-name" id="userName">Guest</span>
+                        <span class="user-email" id="userEmail">-</span>
                     </div>
                 </div>
+                <button class="btn btn-logout" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </button>
             </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <!-- Header -->
-            <header class="header">
-                <button class="menu-toggle" id="menuToggle">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <h1 class="page-title" id="pageTitle">Dashboard</h1>
-                <div class="header-actions">
-                    <button class="btn btn-refresh" id="refreshBtn" title="Refresh Data">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                    <div class="connection-status" id="connectionStatus">
-                        <span class="status-dot offline"></span>
-                        <span class="status-text">Offline</span>
+        <main class="main-content" id="mainContent">
+            <!-- Auth Pages (Show before login) -->
+            <div class="auth-pages" id="authPages">
+                <!-- Login Page -->
+                <div class="auth-page active" id="loginPage">
+                    <div class="auth-container">
+                        <div class="auth-card">
+                            <div class="auth-logo">
+                                <i class="fas fa-rocket"></i>
+                                <h1>YT-AutoPilot Pro</h1>
+                                <p>Automate Your YouTube Shorts</p>
+                            </div>
+                            
+                            <form class="auth-form" id="loginForm">
+                                <div class="form-group">
+                                    <label><i class="fas fa-envelope"></i> Email</label>
+                                    <input type="email" id="loginEmail" placeholder="Enter your email" required>
+                                </div>
+                                <div class="form-group">
+                                    <label><i class="fas fa-lock"></i> Password</label>
+                                    <input type="password" id="loginPassword" placeholder="Enter your password" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-full">
+                                    <i class="fas fa-sign-in-alt"></i>
+                                    Login
+                                </button>
+                            </form>
+                            
+                            <div class="auth-divider">
+                                <span>OR</span>
+                            </div>
+                            
+                            <p class="auth-switch">
+                                Don't have an account? 
+                                <a href="#" id="showRegister">Register</a>
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </header>
-
-            <!-- Content Area -->
-            <div class="content-area">
-                <!-- Dashboard Page -->
-                <div class="page active" id="dashboard-page">
-                    <!-- Auth Section -->
-                    <div class="auth-section" id="authSection">
+                
+                <!-- Register Page -->
+                <div class="auth-page" id="registerPage">
+                    <div class="auth-container">
                         <div class="auth-card">
-                            <div class="auth-icon">
-                                <i class="fab fa-youtube"></i>
+                            <div class="auth-logo">
+                                <i class="fas fa-rocket"></i>
+                                <h1>Create Account</h1>
+                                <p>Start automating your content</p>
                             </div>
-                            <h2>Connect Your YouTube Channel</h2>
-                            <p>YT-AutoPilot Pro needs access to your YouTube channel to upload videos automatically.</p>
-                            <button class="btn btn-youtube" id="connectYouTubeBtn">
-                                <i class="fab fa-youtube"></i>
-                                Connect with YouTube
+                            
+                            <form class="auth-form" id="registerForm">
+                                <div class="form-group">
+                                    <label><i class="fas fa-user"></i> Full Name</label>
+                                    <input type="text" id="registerName" placeholder="Enter your name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label><i class="fas fa-envelope"></i> Email</label>
+                                    <input type="email" id="registerEmail" placeholder="Enter your email" required>
+                                </div>
+                                <div class="form-group">
+                                    <label><i class="fas fa-lock"></i> Password</label>
+                                    <input type="password" id="registerPassword" placeholder="Min 6 characters" required minlength="6">
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-full">
+                                    <i class="fas fa-user-plus"></i>
+                                    Create Account
+                                </button>
+                            </form>
+                            
+                            <div class="auth-divider">
+                                <span>OR</span>
+                            </div>
+                            
+                            <p class="auth-switch">
+                                Already have an account? 
+                                <a href="#" id="showLogin">Login</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Pages (Show after login) -->
+            <div class="dashboard-pages" id="dashboardPages" style="display: none;">
+                <!-- Header -->
+                <header class="header">
+                    <button class="menu-toggle" id="menuToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 class="page-title" id="pageTitle">Dashboard</h1>
+                    <div class="header-actions">
+                        <button class="btn btn-refresh" id="refreshBtn" title="Refresh Data">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <div class="connection-status" id="connectionStatus">
+                            <span class="status-dot offline"></span>
+                            <span class="status-text">Offline</span>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Content Area -->
+                <div class="content-area">
+                    <!-- Dashboard Page -->
+                    <div class="page active" id="dashboard-page">
+                        <!-- No Channels Warning -->
+                        <div class="warning-card" id="noChannelsWarning" style="display: none;">
+                            <div class="warning-icon">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="warning-content">
+                                <h3>No YouTube Channels Connected</h3>
+                                <p>You need to connect at least one YouTube channel to start generating videos.</p>
+                                <button class="btn btn-youtube" id="connectFirstChannelBtn">
+                                    <i class="fab fa-youtube"></i>
+                                    Connect YouTube Channel
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Stats Grid -->
+                        <div class="stats-grid" id="statsGrid">
+                            <div class="stat-card">
+                                <div class="stat-icon blue">
+                                    <i class="fas fa-video"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="totalVideos">-</span>
+                                    <span class="stat-label">Total Videos</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon green">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="successRate">-</span>
+                                    <span class="stat-label">Success Rate</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon purple">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="nextUpload">-</span>
+                                    <span class="stat-label">Next Upload</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon orange">
+                                    <i class="fab fa-youtube"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="totalChannels">-</span>
+                                    <span class="stat-label">Channels</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Status -->
+                        <div class="status-section" id="statusSection">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-info-circle"></i> System Status</h3>
+                                    <span class="badge" id="systemStatus">Checking...</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="status-item">
+                                        <span class="status-label">Current Category:</span>
+                                        <span class="status-value" id="currentCategory">-</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="status-label">Next Episode:</span>
+                                        <span class="status-value" id="nextEpisode">-</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="status-label">Last Upload:</span>
+                                        <span class="status-value" id="lastUpload">-</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="status-label">GitHub Actions:</span>
+                                        <span class="status-value" id="githubStatus">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Videos -->
+                        <div class="recent-videos" id="recentVideosSection">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-history"></i> Recent Videos</h3>
+                                    <a href="#videos" class="view-all" data-page="videos">View All</a>
+                                </div>
+                                <div class="card-body">
+                                    <div class="video-list" id="recentVideoList">
+                                        <div class="loading">Loading...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Channels Page -->
+                    <div class="page" id="channels-page">
+                        <div class="page-header">
+                            <h2><i class="fab fa-youtube"></i> My YouTube Channels</h2>
+                            <button class="btn btn-youtube" id="addChannelBtn">
+                                <i class="fas fa-plus"></i>
+                                Add Channel
                             </button>
                         </div>
-                    </div>
-
-                    <!-- Stats Grid (Hidden until connected) -->
-                    <div class="stats-grid" id="statsGrid" style="display: none;">
-                        <div class="stat-card">
-                            <div class="stat-icon blue">
-                                <i class="fas fa-video"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="totalVideos">-</span>
-                                <span class="stat-label">Total Videos</span>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon green">
-                                <i class="fas fa-check-circle"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="successRate">-</span>
-                                <span class="stat-label">Success Rate</span>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon purple">
-                                <i class="fas fa-clock"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="nextUpload">-</span>
-                                <span class="stat-label">Next Upload</span>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon orange">
-                                <i class="fas fa-fire"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="currentStreak">-</span>
-                                <span class="stat-label">Day Streak</span>
-                            </div>
+                        
+                        <div class="channels-grid" id="channelsGrid">
+                            <div class="loading">Loading channels...</div>
                         </div>
                     </div>
 
-                    <!-- Current Status (Hidden until connected) -->
-                    <div class="status-section" id="statusSection" style="display: none;">
+                    <!-- Videos Page -->
+                    <div class="page" id="videos-page">
                         <div class="card">
                             <div class="card-header">
-                                <h3><i class="fas fa-info-circle"></i> Current Status</h3>
-                                <span class="badge" id="systemStatus">Checking...</span>
-                            </div>
-                            <div class="card-body">
-                                <div class="status-item">
-                                    <span class="status-label">Current Category:</span>
-                                    <span class="status-value" id="currentCategory">-</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-label">Next Episode:</span>
-                                    <span class="status-value" id="nextEpisode">-</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-label">Last Upload:</span>
-                                    <span class="status-value" id="lastUpload">-</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-label">GitHub Actions:</span>
-                                    <span class="status-value" id="githubStatus">-</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recent Videos (Hidden until connected) -->
-                    <div class="recent-videos" id="recentVideosSection" style="display: none;">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3><i class="fas fa-history"></i> Recent Videos</h3>
-                                <a href="#videos" class="view-all">View All</a>
-                            </div>
-                            <div class="card-body">
-                                <div class="video-list" id="recentVideoList">
-                                    <div class="loading">Loading...</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Videos Page -->
-                <div class="page" id="videos-page">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-video"></i> All Videos</h3>
-                            <div class="header-actions">
-                                <input type="search" class="search-input" placeholder="Search videos..." id="videoSearch">
-                                <select class="filter-select" id="videoFilter">
-                                    <option value="all">All Videos</option>
-                                    <option value="long">Long Form</option>
-                                    <option value="short">Shorts</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="video-grid" id="videoGrid">
-                                <div class="loading">Loading videos...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Categories Page -->
-                <div class="page" id="categories-page">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-layer-group"></i> Content Categories</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="categories-list" id="categoriesList">
-                                <div class="loading">Loading categories...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Analytics Page -->
-                <div class="page" id="analytics-page">
-                    <div class="stats-grid">
-                        <div class="stat-card wide">
-                            <div class="stat-icon blue">
-                                <i class="fas fa-chart-bar"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="totalViews">-</span>
-                                <span class="stat-label">Total Views</span>
-                            </div>
-                        </div>
-                        <div class="stat-card wide">
-                            <div class="stat-icon red">
-                                <i class="fas fa-heart"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="totalLikes">-</span>
-                                <span class="stat-label">Total Likes</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-chart-line"></i> Upload History</h3>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="uploadChart" width="800" height="300"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Settings Page -->
-                <div class="page" id="settings-page">
-                    <div class="settings-grid">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3><i class="fas fa-bell"></i> Notifications</h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <span class="setting-name">Discord Webhook</span>
-                                        <span class="setting-desc">Get notifications on Discord</span>
-                                    </div>
-                                    <input type="text" class="setting-input" id="discordWebhook" placeholder="https://discord.com/api/webhooks/...">
-                                </div>
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <span class="setting-name">Slack Webhook</span>
-                                        <span class="setting-desc">Get notifications on Slack</span>
-                                    </div>
-                                    <input type="text" class="setting-input" id="slackWebhook" placeholder="https://hooks.slack.com/...">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card-header">
-                                <h3><i class="fas fa-clock"></i> Schedule</h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <span class="setting-name">Upload Time</span>
-                                        <span class="setting-desc">Daily upload time (IST)</span>
-                                    </div>
-                                    <input type="time" class="setting-input" id="uploadTime" value="17:00">
-                                </div>
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <span class="setting-name">Backup Check</span>
-                                        <span class="setting-desc">Fail-safe backup trigger time</span>
-                                    </div>
-                                    <input type="time" class="setting-input" id="backupTime" value="17:05">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card-header">
-                                <h3><i class="fas fa-video"></i> Video Settings</h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <span class="setting-name">Long Video Length</span>
-                                        <span class="setting-desc">Target duration in minutes</span>
-                                    </div>
-                                    <input type="number" class="setting-input" id="longDuration" value="14" min="10" max="20">
-                                </div>
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <span class="setting-name">Short Video Length</span>
-                                        <span class="setting-desc">Target duration in seconds</span>
-                                    </div>
-                                    <input type="number" class="setting-input" id="shortDuration" value="45" min="30" max="60">
-                                </div>
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <span class="setting-name">Privacy Status</span>
-                                        <span class="setting-desc">Default video visibility</span>
-                                    </div>
-                                    <select class="setting-input" id="privacyStatus">
-                                        <option value="public">Public</option>
-                                        <option value="unlisted">Unlisted</option>
-                                        <option value="private">Private</option>
+                                <h3><i class="fas fa-video"></i> All Videos</h3>
+                                <div class="header-actions">
+                                    <select class="filter-select" id="channelFilter">
+                                        <option value="all">All Channels</option>
                                     </select>
+                                    <input type="search" class="search-input" placeholder="Search videos..." id="videoSearch">
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="video-grid" id="videoGrid">
+                                    <div class="loading">Loading videos...</div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
+                    <!-- Categories Page -->
+                    <div class="page" id="categories-page">
                         <div class="card">
                             <div class="card-header">
-                                <h3><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
+                                <h3><i class="fas fa-layer-group"></i> Content Categories</h3>
                             </div>
                             <div class="card-body">
-                                <div class="danger-actions">
-                                    <button class="btn btn-danger" id="pauseAutomationBtn">
-                                        <i class="fas fa-pause"></i>
-                                        Pause Automation
+                                <div class="categories-list" id="categoriesList">
+                                    <div class="loading">Loading categories...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Page -->
+                    <div class="page" id="analytics-page">
+                        <div class="stats-grid">
+                            <div class="stat-card wide">
+                                <div class="stat-icon blue">
+                                    <i class="fas fa-chart-bar"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="totalViews">-</span>
+                                    <span class="stat-label">Total Views</span>
+                                </div>
+                            </div>
+                            <div class="stat-card wide">
+                                <div class="stat-icon red">
+                                    <i class="fas fa-heart"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="totalLikes">-</span>
+                                    <span class="stat-label">Total Likes</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-line"></i> Upload History</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="uploadChart" width="800" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Settings Page -->
+                    <div class="page" id="settings-page">
+                        <div class="settings-grid">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-user"></i> Profile Settings</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <span class="setting-name">Full Name</span>
+                                            <span class="setting-desc">Your display name</span>
+                                        </div>
+                                        <input type="text" class="setting-input" id="profileName">
+                                    </div>
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <span class="setting-name">Email</span>
+                                            <span class="setting-desc">Cannot be changed</span>
+                                        </div>
+                                        <input type="email" class="setting-input" id="profileEmail" readonly>
+                                    </div>
+                                    <button class="btn btn-primary" id="saveProfileBtn">
+                                        <i class="fas fa-save"></i>
+                                        Save Profile
                                     </button>
-                                    <button class="btn btn-danger" id="resetEpisodeBtn">
-                                        <i class="fas fa-redo"></i>
-                                        Reset Episode Counter
-                                    </button>
-                                    <button class="btn btn-danger" id="disconnectYouTubeBtn">
-                                        <i class="fab fa-youtube"></i>
-                                        Disconnect YouTube
-                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-bell"></i> Notifications</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <span class="setting-name">Discord Webhook</span>
+                                            <span class="setting-desc">Get notifications on Discord</span>
+                                        </div>
+                                        <input type="text" class="setting-input" id="discordWebhook" placeholder="https://discord.com/api/webhooks/...">
+                                    </div>
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <span class="setting-name">Slack Webhook</span>
+                                            <span class="setting-desc">Get notifications on Slack</span>
+                                        </div>
+                                        <input type="text" class="setting-input" id="slackWebhook" placeholder="https://hooks.slack.com/...">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-video"></i> Video Settings</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <span class="setting-name">Default Category</span>
+                                            <span class="setting-desc">Category for new videos</span>
+                                        </div>
+                                        <select class="setting-input" id="defaultCategory">
+                                            <option value="Human Psychology & Behavior">Human Psychology & Behavior</option>
+                                            <option value="Hidden Historical Truths">Hidden Historical Truths</option>
+                                            <option value="Politics Decoded">Politics Decoded</option>
+                                            <option value="Business Fundamentals">Business Fundamentals</option>
+                                            <option value="Education System Exposed">Education System Exposed</option>
+                                            <option value="Society Reality">Society Reality</option>
+                                            <option value="Communication Mastery">Communication Mastery</option>
+                                            <option value="Human Life Reality">Human Life Reality</option>
+                                            <option value="Mythology">Mythology</option>
+                                            <option value="Health & Wellness">Health & Wellness</option>
+                                            <option value="Personal Finance">Personal Finance</option>
+                                            <option value="Technology & Future">Technology & Future</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <span class="setting-name">Upload Time</span>
+                                            <span class="setting-desc">Daily upload time (IST)</span>
+                                        </div>
+                                        <input type="time" class="setting-input" id="uploadTime" value="17:30">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="danger-actions">
+                                        <button class="btn btn-danger" id="pauseAutomationBtn">
+                                            <i class="fas fa-pause"></i>
+                                            Pause Automation
+                                        </button>
+                                        <button class="btn btn-danger" id="changePasswordBtn">
+                                            <i class="fas fa-key"></i>
+                                            Change Password
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -361,8 +468,101 @@
         <span>Loading...</span>
     </div>
 
+    <!-- Channel Settings Modal -->
+    <div class="modal" id="channelSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-cog"></i> Channel Settings</h3>
+                <button class="modal-close" id="closeChannelModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="channel-info" id="modalChannelInfo">
+                    <img src="" alt="" id="modalChannelThumbnail">
+                    <div>
+                        <h4 id="modalChannelName">-</h4>
+                        <p id="modalChannelId">-</p>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Default Category</label>
+                    <select id="modalChannelCategory">
+                        <option value="Human Psychology & Behavior">Human Psychology & Behavior</option>
+                        <option value="Hidden Historical Truths">Hidden Historical Truths</option>
+                        <option value="Politics Decoded">Politics Decoded</option>
+                        <option value="Business Fundamentals">Business Fundamentals</option>
+                        <option value="Education System Exposed">Education System Exposed</option>
+                        <option value="Society Reality">Society Reality</option>
+                        <option value="Communication Mastery">Communication Mastery</option>
+                        <option value="Human Life Reality">Human Life Reality</option>
+                        <option value="Mythology">Mythology</option>
+                        <option value="Health & Wellness">Health & Wellness</option>
+                        <option value="Personal Finance">Personal Finance</option>
+                        <option value="Technology & Future">Technology & Future</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Voice File</label>
+                    <select id="modalChannelVoice">
+                        <option value="voices/voice1.wav">Voice 1</option>
+                        <option value="voices/voice2.wav">Voice 2</option>
+                        <option value="voices/voice3.wav">Voice 3</option>
+                        <option value="voices/voice4.wav">Voice 4</option>
+                        <option value="voices/voice5.wav">Voice 5</option>
+                        <option value="voices/my_voice.wav">Default Voice</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="modalChannelActive">
+                        <span>Active (Enable auto-generation)</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelChannelSettings">Cancel</button>
+                <button class="btn btn-primary" id="saveChannelSettings">
+                    <i class="fas fa-save"></i>
+                    Save Settings
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal" id="changePasswordModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-key"></i> Change Password</h3>
+                <button class="modal-close" id="closePasswordModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" id="currentPassword" placeholder="Enter current password">
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="newPassword" placeholder="Min 6 characters" minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="confirmPassword" placeholder="Confirm new password">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelPasswordChange">Cancel</button>
+                <button class="btn btn-primary" id="savePasswordChange">
+                    <i class="fas fa-save"></i>
+                    Change Password
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
 </body>
 </html>
