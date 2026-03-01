@@ -2,14 +2,14 @@
  * YT-AutoPilot Pro - Tier 1: Render Orchestration Server
  * 
  * Responsibilities:
- * - User authentication & Google OAuth management
+ * - User authentication & registration (Firebase Auth)
+ * - Multi-channel Google OAuth management per user
  * - Scheduling & cron job triggering (12:05 AM daily)
  * - Retry logic & error handling coordination
  * - Firestore database operations
  * - Webhook management for GitHub Actions
- * - YouTube API upload coordination (UNLISTED → PUBLIC flow)
- * - Visibility management (5:00 PM long, 5:30 PM shorts)
- * - Backup system monitoring (4:00 AM trigger check)
+ * - YouTube API upload coordination
+ * - Multi-channel video generation support
  */
 
 require('dotenv').config();
@@ -28,6 +28,8 @@ const authRoutes = require('./routes/auth');
 const webhookRoutes = require('./routes/webhooks');
 const statusRoutes = require('./routes/status');
 const uploadRoutes = require('./routes/upload');
+const userRoutes = require('./routes/user');
+const channelRoutes = require('./routes/channels');
 
 // Utility imports
 const { initializeFirebase } = require('./utils/firebase');
@@ -37,7 +39,6 @@ const { checkSystemHealth } = require('./utils/health');
 // Scheduler imports
 const { mainTrigger } = require('./scheduler/mainTrigger');
 const { backupTrigger } = require('./scheduler/backupTrigger');
-const { publishLongVideos } = require('./scheduler/publishLong');
 const { publishShorts } = require('./scheduler/publishShorts');
 
 // Initialize logger
@@ -102,6 +103,8 @@ app.use('/auth', authRoutes);
 app.use('/webhooks', webhookRoutes);
 app.use('/status', statusRoutes);
 app.use('/upload', uploadRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/channels', channelRoutes);
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -118,15 +121,17 @@ app.get('*', (req, res) => {
 });
 
 // ============================================
-// NEW SCHEDULER SYSTEM (IST Timezone)
+// SCHEDULER SYSTEM (IST Timezone)
 // ============================================
 
 // 1. Main Generation Trigger: 12:05 AM IST
-//    Triggers GitHub Actions for video generation
+//    Triggers GitHub Actions for video generation for all active channels
+
 cron.schedule('5 0 * * *', async () => {
-  logger.info('🕐 MAIN TRIGGER: 12:05 AM IST - Starting video generation');
+  logger.info('🕐 MAIN TRIGGER: 12:05 AM IST - Starting viral shorts generation for all channels');
   try {
-    await mainTrigger();
+    const { generateForAllChannels } = require('./scheduler/mainTrigger');
+    await generateForAllChannels();
   } catch (error) {
     logger.error('❌ Main trigger error:', error);
   }
@@ -149,24 +154,10 @@ cron.schedule('0 4 * * *', async () => {
   timezone: 'Asia/Kolkata'
 });
 
-// 3. Publish Long Videos: 5:00 PM IST
-//    Changes visibility from UNLISTED to PUBLIC
-cron.schedule('0 17 * * *', async () => {
-  logger.info('📹 PUBLISH LONG: 5:00 PM IST - Making long videos public');
-  try {
-    await publishLongVideos();
-  } catch (error) {
-    logger.error('❌ Publish long videos error:', error);
-  }
-}, {
-  scheduled: true,
-  timezone: 'Asia/Kolkata'
-});
-
-// 4. Publish Shorts: 5:30 PM IST
-//    Changes shorts visibility to PUBLIC + adds long video links
+// 3. Publish Shorts: 5:30 PM IST
+//    Changes shorts visibility to PUBLIC
 cron.schedule('30 17 * * *', async () => {
-  logger.info('📱 PUBLISH SHORTS: 5:30 PM IST - Making shorts public with links');
+  logger.info('📱 PUBLISH SHORTS: 5:30 PM IST - Making shorts public');
   try {
     await publishShorts();
   } catch (error) {
@@ -181,8 +172,8 @@ cron.schedule('30 17 * * *', async () => {
 cron.schedule('0 */6 * * *', async () => {
   logger.info('🔄 Refreshing YouTube tokens');
   try {
-    const { refreshYouTubeToken } = require('./utils/youtube');
-    await refreshYouTubeToken();
+    const { refreshAllTokens } = require('./utils/youtube');
+    await refreshAllTokens();
   } catch (error) {
     logger.error('❌ Token refresh error:', error);
   }
@@ -201,11 +192,12 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   logger.info(`🚀 JSR_Auto Server running on port ${PORT}`);
   logger.info(`📅 Schedulers active:`);
-  logger.info(`   - Main generation: 12:05 AM IST`);
+  logger.info(`   - Main generation: 12:05 AM IST (All Channels)`);
   logger.info(`   - Backup check: 4:00 AM IST`);
-  logger.info(`   - Publish long: 5:00 PM IST`);
   logger.info(`   - Publish shorts: 5:30 PM IST`);
   logger.info(`🔍 Health check: /health`);
+  logger.info(`👤 User API: /api/user`);
+  logger.info(`📺 Channel API: /api/channels`);
 });
 
 module.exports = app;
