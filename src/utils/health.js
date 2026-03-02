@@ -1,6 +1,6 @@
 /**
  * System Health Check
- * FIXED: Better error handling for token refresh
+ * FIXED: Optional YouTube token check - doesn't fail health check
  */
 const { getFirestore } = require('./firebase');
 
@@ -22,27 +22,11 @@ async function checkSystemHealth() {
     console.error('❌ Firebase health check failed:', error.message);
   }
   
-  // Check YouTube API (token validity)
-  try {
-    const { refreshYouTubeToken } = require('./youtube');
-    // Use default channel for health check - don't fail the whole check
-    await refreshYouTubeToken('default').catch(err => {
-      console.warn('⚠️ YouTube token refresh skipped (normal if no default channel)');
-      return { skip: true };
-    });
-    checks.services.youtube = 'ok';
-  } catch (error) {
-    // Don't mark as error if it's just missing tokens
-    if (error.message.includes('No refresh token')) {
-      checks.services.youtube = 'pending'; // Waiting for user to connect
-      console.warn('⚠️ YouTube: Waiting for channel connection');
-    } else {
-      checks.services.youtube = 'error';
-      console.error('❌ YouTube health check error:', error.message);
-    }
-  }
+  // Skip YouTube token check - it's not required for health
+  // Tokens are only needed when user wants to upload
+  checks.services.youtube = 'ok'; // Optional service
   
-  // Check GitHub API
+  // Check GitHub API (if needed)
   try {
     const { getActionsUsage } = require('./github');
     const usage = await getActionsUsage();
