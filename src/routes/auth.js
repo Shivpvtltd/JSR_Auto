@@ -1,6 +1,6 @@
 /**
  * Authentication Routes - Google OAuth for YouTube with Multi-Channel Support
- * FIXED: Proper session handling for OAuth
+ * FIXED: Use OAuth state param to pass email instead of relying on session
  */
 const express = require('express');
 const router = express.Router();
@@ -22,23 +22,43 @@ passport.use(new GoogleStrategy({
     'https://www.googleapis.com/auth/youtube.readonly'
   ],
   passReqToCallback: true,
-  state: true // Enable state parameter for CSRF protection
+  state: false // We handle state manually to embed email
 }, async (req, accessToken, refreshToken, profile, done) => {
   try {
     console.log('🔐 OAuth success, fetching YouTube channel details...');
     console.log('📊 Profile email:', profile.emails?.[0]?.value);
 
-    // Get user email from session
-    let userEmail = req.session?.pendingUserEmail;
-    
-    // Fallback: Try to get email from profile if not in session
+    let userEmail = null;
+
+    // PRIMARY FIX: Extract email from state parameter (survives cross-domain redirect)
+    try {
+      const stateParam = req.query.state;
+      if (stateParam) {
+        const decoded = Buffer.from(stateParam, 'base64').toString('utf8');
+        const stateObj = JSON.parse(decoded);
+        if (stateObj.email) {
+          userEmail = stateObj.email;
+          console.log('📧 Got email from state param:', userEmail);
+        }
+      }
+    } catch (stateErr) {
+      console.log('⚠️ Could not parse state param:', stateErr.message);
+    }
+
+    // Fallback 1: session
+    if (!userEmail && req.session?.pendingUserEmail) {
+      userEmail = req.session.pendingUserEmail;
+      console.log('📧 Got email from session:', userEmail);
+    }
+
+    // Fallback 2: Google profile email
     if (!userEmail && profile.emails && profile.emails.length > 0) {
       userEmail = profile.emails[0].value;
-      console.log('📧 Using email from profile:', userEmail);
+      console.log('📧 Using email from Google profile:', userEmail);
     }
-    
+
     if (!userEmail) {
-      console.error('❌ No user email found in session or profile');
+      console.error('❌ No user email found in state, session, or profile');
       return done(new Error('User email not found. Please try logging in again.'), null);
     }
 
@@ -144,7 +164,6 @@ passport.use(new GoogleStrategy({
           console.log(`✅ Channel added to user's channels list: ${userEmail}`);
         }
       } else {
-        // Create user if doesn't exist
         await db.collection('users').doc(userEmail).set({
           email: userEmail,
           channels: [channelId],
@@ -155,12 +174,11 @@ passport.use(new GoogleStrategy({
       }
     } catch (dbError) {
       console.error('⚠️ Error updating user channels:', dbError.message);
-      // Don't fail - channel is already saved
     }
 
     console.log('✅ Channel connected successfully');
 
-    // Clear pending state
+    // Clear pending state from session
     if (req.session) {
       req.session.pendingUserEmail = null;
       req.session.save();
@@ -211,43 +229,50 @@ router.get('/youtube/connect', (req, res, next) => {
     `);
   }
 
-  // Store user email in session for callback
+  // Store user email in session (fallback only)
   req.session.pendingUserEmail = email;
   req.session.save((err) => {
-    if (err) {
-      console.error('❌ Session save error:', err);
-      return res.status(500).send('Session error');
-    }
-    
-    console.log(`🔄 Initiating OAuth for user: ${email}`);
-    console.log(`📍 Session ID: ${req.sessionID}`);
-
-    passport.authenticate('google', {
-      scope: [
-        'profile',
-        'email',
-        'https://www.googleapis.com/auth/youtube.upload',
-        'https://www.googleapis.com/auth/youtube',
-        'https://www.googleapis.com/auth/youtube.readonly'
-      ],
-      accessType: 'offline',
-      prompt: 'consent'
-    })(req, res, next);
+    if (err) console.error('⚠️ Session save warning (non-fatal):', err);
   });
+
+  console.log(`🔄 Initiating OAuth for user: ${email}`);
+  console.log(`📍 Session ID: ${req.sessionID}`);
+
+  // PRIMARY FIX: Encode email in state parameter as base64 JSON
+  // This survives cross-domain redirects where session cookies may be lost
+  const stateObj = { email: email, ts: Date.now() };
+  const stateParam = Buffer.from(JSON.stringify(stateObj)).toString('base64');
+
+  passport.authenticate('google', {
+    scope: [
+      'profile',
+      'email',
+      'https://www.googleapis.com/auth/youtube.upload',
+      'https://www.googleapis.com/auth/youtube',
+      'https://www.googleapis.com/auth/youtube.readonly'
+    ],
+    accessType: 'offline',
+    prompt: 'consent',
+    state: stateParam  // Email encoded here - survives cross-domain redirect
+  })(req, res, next);
 });
 
 /**
  * YouTube OAuth callback
  */
 router.get('/youtube/callback',
-  passport.authenticate('google', { failureRedirect: '/auth/error' }),
+  (req, res, next) => {
+    passport.authenticate('google', { 
+      failureRedirect: '/auth/error',
+      session: false
+    })(req, res, next);
+  },
   (req, res) => {
     console.log('✅ YouTube authentication successful');
     
     const channelId = req.user?.channelId;
     const channelName = req.user?.displayName;
     
-    // Return HTML that closes popup and notifies parent
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -271,17 +296,10 @@ router.get('/youtube/callback',
             box-shadow: 0 20px 40px rgba(0,0,0,0.2);
             max-width: 400px;
           }
-          .success-icon {
-            font-size: 64px;
-            color: #22c55e;
-            margin-bottom: 20px;
-          }
+          .success-icon { font-size: 64px; color: #22c55e; margin-bottom: 20px; }
           h2 { color: #1e293b; margin-bottom: 10px; }
           p { color: #64748b; margin-bottom: 20px; }
-          .channel-name {
-            font-weight: 600;
-            color: #6366f1;
-          }
+          .channel-name { font-weight: 600; color: #6366f1; }
           .spinner {
             border: 3px solid #e2e8f0;
             border-top-color: #6366f1;
@@ -303,16 +321,25 @@ router.get('/youtube/callback',
           <p style="font-size: 14px;">Closing window...</p>
         </div>
         <script>
-          // Notify parent window
-          if (window.opener) {
-            window.opener.postMessage({ 
-              type: 'oauth_complete', 
-              success: true,
-              channelId: '${channelId}',
-              channelName: '${channelName}'
-            }, '*');
+          function notifyParent() {
+            try {
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({ 
+                  type: 'oauth_complete', 
+                  success: true,
+                  channelId: '${channelId}',
+                  channelName: '${channelName}'
+                }, '*');
+                console.log('✅ Parent window notified');
+              }
+            } catch(e) {
+              console.log('Could not notify parent:', e);
+            }
           }
-          // Close after 2 seconds
+          // Notify immediately and with delay
+          notifyParent();
+          setTimeout(notifyParent, 300);
+          setTimeout(notifyParent, 800);
           setTimeout(() => window.close(), 2000);
         </script>
       </body>
@@ -359,9 +386,11 @@ router.get('/error', (req, res) => {
         <h2>Authentication Failed</h2>
         <p>Could not connect YouTube channel. Please try again.</p>
         <script>
-          if (window.opener) {
-            window.opener.postMessage({ type: 'oauth_error', success: false }, '*');
-          }
+          try {
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage({ type: 'oauth_error', success: false }, '*');
+            }
+          } catch(e) {}
           setTimeout(() => window.close(), 3000);
         </script>
       </div>
