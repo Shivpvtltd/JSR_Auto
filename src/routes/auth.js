@@ -1,6 +1,6 @@
 /**
  * Authentication Routes - Google OAuth for YouTube with Multi-Channel Support
- * Fixed OAuth Flow - Proper Implementation
+ * FIXED: Proper session handling for OAuth
  */
 const express = require('express');
 const router = express.Router();
@@ -21,35 +21,49 @@ passport.use(new GoogleStrategy({
     'https://www.googleapis.com/auth/youtube',
     'https://www.googleapis.com/auth/youtube.readonly'
   ],
-  passReqToCallback: true
+  passReqToCallback: true,
+  state: true // Enable state parameter for CSRF protection
 }, async (req, accessToken, refreshToken, profile, done) => {
   try {
     console.log('🔐 OAuth success, fetching YouTube channel details...');
+    console.log('📊 Profile email:', profile.emails?.[0]?.value);
 
-    // Get user email from session (set during OAuth initiation)
-    const userEmail = req.session?.pendingUserEmail;
+    // Get user email from session
+    let userEmail = req.session?.pendingUserEmail;
+    
+    // Fallback: Try to get email from profile if not in session
+    if (!userEmail && profile.emails && profile.emails.length > 0) {
+      userEmail = profile.emails[0].value;
+      console.log('📧 Using email from profile:', userEmail);
+    }
     
     if (!userEmail) {
-      console.error('❌ No user email found in session');
-      return done(new Error('User session expired. Please try again.'), null);
+      console.error('❌ No user email found in session or profile');
+      return done(new Error('User email not found. Please try logging in again.'), null);
     }
 
     // Fetch YouTube channel details using accessToken
-    const ytResponse = await axios.get(
-      'https://youtube.googleapis.com/youtube/v3/channels',
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        },
-        params: {
-          part: 'id,snippet,statistics',
-          mine: true
+    let ytResponse;
+    try {
+      ytResponse = await axios.get(
+        'https://youtube.googleapis.com/youtube/v3/channels',
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          },
+          params: {
+            part: 'id,snippet,statistics',
+            mine: true
+          }
         }
-      }
-    );
+      );
+    } catch (ytError) {
+      console.error('❌ YouTube API Error:', ytError.response?.data || ytError.message);
+      return done(new Error('Failed to fetch YouTube channel. Please check your permissions.'), null);
+    }
 
     if (!ytResponse.data.items || ytResponse.data.items.length === 0) {
-      throw new Error('No YouTube channel found for this account');
+      return done(new Error('No YouTube channel found for this account'), null);
     }
 
     const channel = ytResponse.data.items[0];
@@ -64,73 +78,106 @@ passport.use(new GoogleStrategy({
     const db = getFirestore();
 
     // Save/update channel tokens in userTokens collection
-    await db.collection('userTokens').doc(channelId).set({
-      channelId: channelId,
-      ownerEmail: userEmail,
-      googleUserId: profile.id,
-      accessToken: accessToken,
-      refreshToken: refreshToken,
-      name: channelName,
-      thumbnail: channelThumbnail,
-      subscriberCount: subscriberCount,
-      email: profile.emails?.[0]?.value || null,
-      picture: profile.photos?.[0]?.value || null,
-      connectedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isActive: true
-    }, { merge: true });
+    try {
+      await db.collection('userTokens').doc(channelId).set({
+        channelId: channelId,
+        ownerEmail: userEmail,
+        googleUserId: profile.id,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        name: channelName,
+        thumbnail: channelThumbnail,
+        subscriberCount: subscriberCount,
+        email: profile.emails?.[0]?.value || null,
+        picture: profile.photos?.[0]?.value || null,
+        connectedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isActive: true
+      }, { merge: true });
+      
+      console.log(`✅ Tokens saved for channel: ${channelId}`);
+    } catch (dbError) {
+      console.error('❌ Error saving tokens to userTokens:', dbError.message);
+      return done(new Error('Failed to save channel tokens'), null);
+    }
 
     // Save/update channels collection
-    await db.collection('channels').doc(channelId).set({
-      channelId: channelId,
-      ownerEmail: userEmail,
-      name: channelName,
-      thumbnail: channelThumbnail,
-      subscriberCount: subscriberCount,
-      connectedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isActive: true,
-      voiceFile: null,
-      settings: {
-        defaultCategory: 'Human Psychology & Behavior',
-        defaultSubCategory: 'Dark Psychology',
-        autoPublish: true,
-        preferredTime: '17:30'
-      },
-      uploadHistory: []
-    }, { merge: true });
+    try {
+      await db.collection('channels').doc(channelId).set({
+        channelId: channelId,
+        ownerEmail: userEmail,
+        name: channelName,
+        thumbnail: channelThumbnail,
+        subscriberCount: subscriberCount,
+        connectedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isActive: true,
+        voiceFile: null,
+        settings: {
+          defaultCategory: 'Human Psychology & Behavior',
+          defaultSubCategory: 'Dark Psychology',
+          autoPublish: true,
+          preferredTime: '17:30'
+        },
+        uploadHistory: []
+      }, { merge: true });
+      
+      console.log(`✅ Channel saved to channels collection`);
+    } catch (dbError) {
+      console.error('❌ Error saving to channels collection:', dbError.message);
+      return done(new Error('Failed to save channel details'), null);
+    }
 
     // Add channel to user's channels array
-    const userDoc = await db.collection('users').doc(userEmail).get();
-    if (userDoc.exists) {
-      const userData = userDoc.data();
-      const userChannels = userData.channels || [];
-      
-      if (!userChannels.includes(channelId)) {
-        userChannels.push(channelId);
-        await db.collection('users').doc(userEmail).update({
-          channels: userChannels,
+    try {
+      const userDoc = await db.collection('users').doc(userEmail).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        const userChannels = userData.channels || [];
+        
+        if (!userChannels.includes(channelId)) {
+          userChannels.push(channelId);
+          await db.collection('users').doc(userEmail).update({
+            channels: userChannels,
+            updatedAt: new Date().toISOString()
+          });
+          console.log(`✅ Channel added to user's channels list: ${userEmail}`);
+        }
+      } else {
+        // Create user if doesn't exist
+        await db.collection('users').doc(userEmail).set({
+          email: userEmail,
+          channels: [channelId],
+          createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
-        console.log(`✅ Channel added to user: ${userEmail}`);
+        console.log(`✅ User created and channel added: ${userEmail}`);
       }
+    } catch (dbError) {
+      console.error('⚠️ Error updating user channels:', dbError.message);
+      // Don't fail - channel is already saved
     }
 
     console.log('✅ Channel connected successfully');
 
     // Clear pending state
-    delete req.session.pendingUserEmail;
+    if (req.session) {
+      req.session.pendingUserEmail = null;
+      req.session.save();
+    }
 
     return done(null, {
       channelId: channelId,
       displayName: channelName,
       ownerEmail: userEmail,
+      email: userEmail,
       accessToken,
       refreshToken
     });
 
   } catch (error) {
-    console.error('❌ OAuth error:', error.message);
+    console.error('❌ OAuth error in verify callback:', error.message);
+    console.error('Stack:', error.stack);
     return done(error, null);
   }
 }));
@@ -144,7 +191,7 @@ passport.deserializeUser((user, done) => {
 });
 
 /**
- * Initiate YouTube OAuth - GET endpoint (for popup window)
+ * Initiate YouTube OAuth
  * GET /auth/youtube/connect?email=user@example.com
  */
 router.get('/youtube/connect', (req, res, next) => {
@@ -166,20 +213,27 @@ router.get('/youtube/connect', (req, res, next) => {
 
   // Store user email in session for callback
   req.session.pendingUserEmail = email;
-  
-  console.log(`🔄 Initiating OAuth for user: ${email}`);
+  req.session.save((err) => {
+    if (err) {
+      console.error('❌ Session save error:', err);
+      return res.status(500).send('Session error');
+    }
+    
+    console.log(`🔄 Initiating OAuth for user: ${email}`);
+    console.log(`📍 Session ID: ${req.sessionID}`);
 
-  passport.authenticate('google', {
-    scope: [
-      'profile',
-      'email',
-      'https://www.googleapis.com/auth/youtube.upload',
-      'https://www.googleapis.com/auth/youtube',
-      'https://www.googleapis.com/auth/youtube.readonly'
-    ],
-    accessType: 'offline',
-    prompt: 'consent'
-  })(req, res, next);
+    passport.authenticate('google', {
+      scope: [
+        'profile',
+        'email',
+        'https://www.googleapis.com/auth/youtube.upload',
+        'https://www.googleapis.com/auth/youtube',
+        'https://www.googleapis.com/auth/youtube.readonly'
+      ],
+      accessType: 'offline',
+      prompt: 'consent'
+    })(req, res, next);
+  });
 });
 
 /**
@@ -324,6 +378,7 @@ router.get('/logout', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
+    req.session.destroy();
     res.json({ success: true, message: 'Logged out' });
   });
 });
@@ -335,7 +390,8 @@ router.get('/status', (req, res) => {
   res.json({
     authenticated: req.isAuthenticated(),
     user: req.user?.displayName || null,
-    channel: req.user?.channelId || null
+    channel: req.user?.channelId || null,
+    email: req.user?.email || null
   });
 });
 
