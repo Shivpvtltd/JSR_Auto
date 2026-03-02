@@ -534,26 +534,63 @@ function addYouTubeChannel() {
         return;
     }
     
+    showToast('Opening YouTube authorization...', 'info');
+    
     // Open OAuth in popup
-    const width = 500;
-    const height = 600;
+    const width = 600;
+    const height = 700;
     const left = (window.innerWidth - width) / 2;
     const top = (window.innerHeight - height) / 2;
     
+    const popupUrl = `${CONFIG.API_BASE_URL}/auth/youtube/connect?email=${encodeURIComponent(state.user.email)}`;
+    
+    console.log('Opening OAuth popup:', popupUrl);
+    
     const popup = window.open(
-        `${CONFIG.API_BASE_URL}/auth/youtube/initiate?email=${encodeURIComponent(state.user.email)}`,
+        popupUrl,
         'youtubeOAuth',
-        `width=${width},height=${height},left=${left},top=${top}`
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
     );
     
+    if (!popup) {
+        showToast('Popup blocked! Please allow popups for this site.', 'error');
+        return;
+    }
+    
     // Listen for OAuth completion
-    window.addEventListener('message', (e) => {
-        if (e.data === 'oauth_complete') {
-            popup.close();
-            showToast('Channel connected successfully!', 'success');
-            loadChannels();
+    const messageHandler = (e) => {
+        console.log('Received message:', e.data);
+        
+        if (e.data && e.data.type === 'oauth_complete' && e.data.success) {
+            window.removeEventListener('message', messageHandler);
+            
+            if (popup && !popup.closed) {
+                popup.close();
+            }
+            
+            showToast(`Channel "${e.data.channelName}" connected successfully!`, 'success');
+            loadChannels(); // Refresh channels list
+        } else if (e.data && e.data.type === 'oauth_error') {
+            window.removeEventListener('message', messageHandler);
+            
+            if (popup && !popup.closed) {
+                popup.close();
+            }
+            
+            showToast('Failed to connect channel. Please try again.', 'error');
         }
-    });
+    };
+    
+    window.addEventListener('message', messageHandler);
+    
+    // Check if popup is closed manually
+    const checkClosed = setInterval(() => {
+        if (popup.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', messageHandler);
+            console.log('Popup closed by user');
+        }
+    }, 500);
 }
 
 function openChannelSettings(channelId) {
@@ -993,26 +1030,11 @@ function startAutoRefresh() {
     }, CONFIG.REFRESH_INTERVAL);
 }
 
-// Handle OAuth callback
+// Handle OAuth callback (not used anymore - handled in popup)
 function handleOAuthCallback() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const success = urlParams.get('success');
-    const channel = urlParams.get('channel');
-    
-    if (success === 'true' && channel) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-        showToast('YouTube channel connected!', 'success');
-        
-        // Notify parent window if in popup
-        if (window.opener) {
-            window.opener.postMessage('oauth_complete', '*');
-        }
-        
-        // Reload channels if logged in
-        if (state.isLoggedIn) {
-            loadChannels();
-        }
-    }
+    // OAuth callback is now handled in the popup window
+    // This function is kept for backward compatibility
+    console.log('OAuth callback handler - not used in popup flow');
 }
 
 // Initialize on load
