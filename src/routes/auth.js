@@ -262,9 +262,11 @@ router.get('/youtube/connect', (req, res, next) => {
  */
 router.get('/youtube/callback',
   (req, res, next) => {
+    // Guard: if already handled (e.g. browser retry), ignore
+    if (res.headersSent) return;
     passport.authenticate('google', { 
       failureRedirect: '/auth/error',
-      session: false
+      session: true
     })(req, res, next);
   },
   (req, res) => {
