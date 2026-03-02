@@ -1,8 +1,39 @@
 /**
  * Firestore Database Operations
  * Updated for Multi-Channel Support
+ * FIXED: Added missing getUserTokens function
  */
 const { getFirestore } = require('./firebase');
+
+/**
+ * Get user tokens by channel ID
+ */
+async function getUserTokens(channelId) {
+  const db = getFirestore();
+  
+  try {
+    const docRef = db.collection('userTokens').doc(channelId);
+    const doc = await docRef.get();
+    
+    if (!doc.exists) {
+      console.warn(`⚠️ No tokens found for channel: ${channelId}`);
+      return null;
+    }
+    
+    const data = doc.data();
+    return {
+      refreshToken: data.refreshToken,
+      accessToken: data.accessToken,
+      expiryDate: data.expiryDate,
+      channelId: data.channelId,
+      ownerEmail: data.ownerEmail
+    };
+    
+  } catch (error) {
+    console.error('❌ Error getting user tokens:', error);
+    throw error;
+  }
+}
 
 async function getCurrentEpisode(channelId) {
   /**
@@ -79,10 +110,11 @@ async function saveUserTokens(channelId, data) {
 
     await docRef.set({
       ...data,
+      channelId,
       savedAt: new Date().toISOString()
     }, { merge: true });
 
-    console.log('✅ User tokens saved');
+    console.log('✅ User tokens saved for channel:', channelId);
     return true;
 
   } catch (error) {
@@ -419,6 +451,7 @@ module.exports = {
   updateVideoStatus,
   getVideosByDate,
   saveUserTokens,
+  getUserTokens,        // ✅ ADDED THIS
   getUserChannels,
   getActiveChannels,
   getChannelVoiceFile,
