@@ -1,7 +1,7 @@
 /**
  * YouTube API Integration
  * Handles video upload, visibility management, and description updates
- * FIXED: Better token refresh error handling
+ * FIXED: Proper error handling for missing tokens
  */
 const { google } = require('googleapis');
 const axios = require('axios');
@@ -22,20 +22,28 @@ const youtube = google.youtube({
 /**
  * Refresh YouTube access token
  */
-async function refreshYouTubeToken(userId = 'default') {
+async function refreshYouTubeToken(channelId = null) {
   try {
+    // If no channelId provided, skip refresh (health check)
+    if (!channelId) {
+      console.log('ℹ️ Skipping token refresh - no channelId provided');
+      return { skip: true };
+    }
+    
     // Get tokens from Firestore
-    const tokens = await getUserTokens(userId);
+    const tokens = await getUserTokens(channelId);
     
     if (!tokens) {
-      throw new Error(`No tokens found for userId: ${userId}. Please connect your YouTube channel first.`);
+      console.warn(`⚠️ No tokens found for channel: ${channelId}. Please connect YouTube first.`);
+      return { skip: true, reason: 'no_tokens' };
     }
     
     if (!tokens.refreshToken) {
-      throw new Error('No refresh token found. Please reconnect your YouTube channel.');
+      console.warn(`⚠️ No refresh token for channel: ${channelId}`);
+      return { skip: true, reason: 'no_refresh_token' };
     }
     
-    console.log(`🔄 Refreshing YouTube token for channel: ${tokens.channelId}`);
+    console.log(`🔄 Refreshing YouTube token for channel: ${channelId}`);
     
     oauth2Client.setCredentials({
       refresh_token: tokens.refreshToken
@@ -44,29 +52,25 @@ async function refreshYouTubeToken(userId = 'default') {
     const { credentials } = await oauth2Client.refreshAccessToken();
     
     // Save new tokens
-    await saveUserTokens(userId, {
+    await saveUserTokens(channelId, {
       accessToken: credentials.access_token,
       refreshToken: tokens.refreshToken, // Keep the refresh token
       expiryDate: credentials.expiry_date,
-      channelId: tokens.channelId,
+      channelId: channelId,
       updatedAt: new Date().toISOString()
     });
     
-    console.log(`✅ YouTube token refreshed successfully`);
+    console.log(`✅ YouTube token refreshed for channel: ${channelId}`);
     
     return {
+      success: true,
       accessToken: credentials.access_token,
       expiresIn: credentials.expiry_date
     };
     
   } catch (error) {
     console.error('❌ Error refreshing token:', error.message);
-    // Return error object instead of throwing to prevent app crash
-    return {
-      error: true,
-      message: error.message,
-      code: error.code
-    };
+    throw error;
   }
 }
 
@@ -77,19 +81,29 @@ async function refreshAllTokens() {
   try {
     console.log('🔄 Starting token refresh for all channels...');
     const { getActiveChannels } = require('./firestore');
-    const channels = await getActiveChannels();
     
-    for (const channel of channels) {
-      try {
-        await refreshYouTubeToken(channel.channelId);
-      } catch (error) {
-        console.error(`⚠️ Failed to refresh token for ${channel.channelId}:`, error.message);
+    try {
+      const channels = await getActiveChannels();
+      
+      if (channels.length === 0) {
+        console.log('ℹ️ No active channels to refresh');
+        return;
       }
+      
+      for (const channel of channels) {
+        try {
+          await refreshYouTubeToken(channel.channelId);
+        } catch (error) {
+          console.error(`⚠️ Failed to refresh token for ${channel.channelId}:`, error.message);
+        }
+      }
+      
+      console.log('✅ Token refresh cycle completed');
+    } catch (error) {
+      console.error('⚠️ Could not get active channels for token refresh');
     }
-    
-    console.log('✅ Token refresh cycle completed');
   } catch (error) {
-    console.error('❌ Error in refreshAllTokens:', error);
+    console.error('❌ Error in refreshAllTokens:', error.message);
   }
 }
 
@@ -102,14 +116,18 @@ async function uploadToYouTube({
   thumbnailUrl,
   metadata,
   videoType = 'long',
-  channelId = 'default'
+  channelId
 }) {
   try {
+    if (!channelId) {
+      throw new Error('channelId is required for uploading');
+    }
+    
     // Refresh token before upload
     const tokenResult = await refreshYouTubeToken(channelId);
     
-    if (tokenResult.error) {
-      throw new Error(`Cannot upload: ${tokenResult.message}`);
+    if (tokenResult.skip) {
+      throw new Error(`Cannot upload: Please connect your YouTube channel first`);
     }
     
     const videoFilePath = videoPath || await downloadVideo(videoUrl);
@@ -174,11 +192,15 @@ async function uploadToYouTube({
 /**
  * Update video visibility (for scheduler)
  */
-async function updateVideoVisibility(videoId, visibility, channelId = 'default') {
+async function updateVideoVisibility(videoId, visibility, channelId) {
   try {
+    if (!channelId) {
+      throw new Error('channelId is required');
+    }
+    
     await refreshYouTubeToken(channelId);
     
-    console.log(`�� Updating visibility: ${videoId} → ${visibility}`);
+    console.log(`🔄 Updating visibility: ${videoId} → ${visibility}`);
     
     const response = await youtube.videos.update({
       part: 'status',
@@ -209,10 +231,14 @@ async function updateVideoVisibility(videoId, visibility, channelId = 'default')
 }
 
 /**
- * Update video description (for adding long video links to shorts)
+ * Update video description
  */
-async function updateVideoDescription(videoId, description, channelId = 'default') {
+async function updateVideoDescription(videoId, description, channelId) {
   try {
+    if (!channelId) {
+      throw new Error('channelId is required');
+    }
+    
     await refreshYouTubeToken(channelId);
     
     console.log(`📝 Updating description: ${videoId}`);
@@ -354,8 +380,12 @@ async function downloadThumbnail(url) {
 /**
  * Get YouTube analytics
  */
-async function getYouTubeAnalytics(channelId = 'default') {
+async function getYouTubeAnalytics(channelId) {
   try {
+    if (!channelId) {
+      throw new Error('channelId is required');
+    }
+    
     await refreshYouTubeToken(channelId);
     
     // Get channel statistics
@@ -397,7 +427,7 @@ async function getYouTubeAnalytics(channelId = 'default') {
 
 module.exports = {
   refreshYouTubeToken,
-  refreshAllTokens,      // ✅ ADDED THIS
+  refreshAllTokens,
   uploadToYouTube,
   updateVideoVisibility,
   updateVideoDescription,
