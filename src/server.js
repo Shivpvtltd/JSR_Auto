@@ -181,6 +181,15 @@ cron.schedule('0 */6 * * *', async () => {
 
 // Error handler
 app.use((err, req, res, next) => {
+  // Handle OAuth invalid_grant gracefully (browser retry of callback URL)
+  if (err.name === 'TokenError' && err.code === 'invalid_grant') {
+    logger.warn('⚠️ OAuth invalid_grant - browser retry detected, ignoring');
+    if (req.path && req.path.includes('/auth/youtube/callback')) {
+      return res.redirect('/auth/error');
+    }
+    return res.status(400).json({ error: 'OAuth session expired. Please try connecting again.' });
+  }
+
   logger.error('Unhandled error:', err);
   res.status(500).json({
     error: 'Internal server error',
