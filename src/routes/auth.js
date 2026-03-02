@@ -1,22 +1,19 @@
 /**
  * Authentication Routes - Google OAuth for YouTube with Multi-Channel Support
+ * Fixed OAuth Flow - Proper Implementation
  */
 const express = require('express');
 const router = express.Router();
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { getFirestore } = require('../utils/firestore');
-
-// Store pending OAuth states (in production, use Redis)
-const pendingOAuthStates = new Map();
-
-// Configure Google OAuth Strategy
 const axios = require('axios');
 
+// Configure Google OAuth Strategy
 passport.use(new GoogleStrategy({
   clientID: process.env.YOUTUBE_CLIENT_ID,
   clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
-  callbackURL: `${process.env.BASE_URL}/auth/youtube/callback`,
+  callbackURL: `${process.env.BASE_URL || 'http://localhost:3000'}/auth/youtube/callback`,
   scope: [
     'profile',
     'email',
@@ -66,7 +63,7 @@ passport.use(new GoogleStrategy({
 
     const db = getFirestore();
 
-    // Save/update channel tokens
+    // Save/update channel tokens in userTokens collection
     await db.collection('userTokens').doc(channelId).set({
       channelId: channelId,
       ownerEmail: userEmail,
@@ -93,7 +90,7 @@ passport.use(new GoogleStrategy({
       connectedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       isActive: true,
-      voiceFile: null,  // Will be set later
+      voiceFile: null,
       settings: {
         defaultCategory: 'Human Psychology & Behavior',
         defaultSubCategory: 'Dark Psychology',
@@ -147,15 +144,24 @@ passport.deserializeUser((user, done) => {
 });
 
 /**
- * Initiate YouTube OAuth
- * POST /auth/youtube/initiate
- * Body: { email: userEmail }
+ * Initiate YouTube OAuth - GET endpoint (for popup window)
+ * GET /auth/youtube/connect?email=user@example.com
  */
-router.post('/youtube/initiate', (req, res, next) => {
-  const { email } = req.body;
+router.get('/youtube/connect', (req, res, next) => {
+  const { email } = req.query;
   
   if (!email) {
-    return res.status(400).json({ error: 'User email is required' });
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Error</title></head>
+      <body style="font-family: Arial; padding: 40px; text-align: center;">
+        <h2 style="color: #ef4444;">❌ Error</h2>
+        <p>User email is required. Please login first.</p>
+        <script>setTimeout(() => window.close(), 3000);</script>
+      </body>
+      </html>
+    `);
   }
 
   // Store user email in session for callback
@@ -184,39 +190,130 @@ router.get('/youtube/callback',
   (req, res) => {
     console.log('✅ YouTube authentication successful');
     
-    // Redirect to frontend success page with channel info
     const channelId = req.user?.channelId;
     const channelName = req.user?.displayName;
     
-    res.redirect(`/auth/success?channel=${channelId}&name=${encodeURIComponent(channelName)}`);
+    // Return HTML that closes popup and notifies parent
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Channel Connected</title>
+        <style>
+          body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+          }
+          .success-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            max-width: 400px;
+          }
+          .success-icon {
+            font-size: 64px;
+            color: #22c55e;
+            margin-bottom: 20px;
+          }
+          h2 { color: #1e293b; margin-bottom: 10px; }
+          p { color: #64748b; margin-bottom: 20px; }
+          .channel-name {
+            font-weight: 600;
+            color: #6366f1;
+          }
+          .spinner {
+            border: 3px solid #e2e8f0;
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+          }
+          @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+      </head>
+      <body>
+        <div class="success-card">
+          <div class="success-icon">✅</div>
+          <h2>Channel Connected!</h2>
+          <p>Your YouTube channel <span class="channel-name">${channelName}</span> has been successfully connected.</p>
+          <div class="spinner"></div>
+          <p style="font-size: 14px;">Closing window...</p>
+        </div>
+        <script>
+          // Notify parent window
+          if (window.opener) {
+            window.opener.postMessage({ 
+              type: 'oauth_complete', 
+              success: true,
+              channelId: '${channelId}',
+              channelName: '${channelName}'
+            }, '*');
+          }
+          // Close after 2 seconds
+          setTimeout(() => window.close(), 2000);
+        </script>
+      </body>
+      </html>
+    `);
   }
 );
-
-/**
- * Auth success page
- */
-router.get('/success', (req, res) => {
-  const channelId = req.query.channel;
-  const channelName = req.query.name;
-  
-  res.json({
-    success: true,
-    message: 'YouTube channel connected successfully',
-    channel: {
-      id: channelId,
-      name: channelName
-    }
-  });
-});
 
 /**
  * Auth error page
  */
 router.get('/error', (req, res) => {
-  res.status(401).json({
-    success: false,
-    message: 'Authentication failed. Please try again.'
-  });
+  res.status(401).send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Authentication Failed</title>
+      <style>
+        body {
+          font-family: 'Inter', Arial, sans-serif;
+          background: #0f172a;
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0;
+          color: white;
+        }
+        .error-card {
+          background: #1e293b;
+          border-radius: 16px;
+          padding: 40px;
+          text-align: center;
+          border: 1px solid #334155;
+        }
+        .error-icon { font-size: 64px; color: #ef4444; margin-bottom: 20px; }
+        h2 { margin-bottom: 10px; }
+        p { color: #94a3b8; }
+      </style>
+    </head>
+    <body>
+      <div class="error-card">
+        <div class="error-icon">❌</div>
+        <h2>Authentication Failed</h2>
+        <p>Could not connect YouTube channel. Please try again.</p>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ type: 'oauth_error', success: false }, '*');
+          }
+          setTimeout(() => window.close(), 3000);
+        </script>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 /**
