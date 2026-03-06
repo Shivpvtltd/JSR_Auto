@@ -1,6 +1,7 @@
 /**
  * GitHub Actions Integration
  * Triggers workflows in JSR_Automation repository
+ * FIXED: Removed channel_index (not a valid workflow input)
  */
 const axios = require('axios');
 
@@ -11,7 +12,6 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
 /**
  * Trigger GitHub Actions workflow
- * Updated for multi-channel support
  */
 async function triggerGitHubWorkflow({
   run_id,
@@ -19,7 +19,6 @@ async function triggerGitHubWorkflow({
   sub_category,
   episode,
   channel_id,
-  channel_index = 0,
   is_retry = false,
   attempt = 1
 }) {
@@ -32,7 +31,6 @@ async function triggerGitHubWorkflow({
       sub_category: sub_category,
       episode: episode.toString(),
       channel_id: channel_id || '',
-      channel_index: channel_index.toString(),
       is_retry: is_retry.toString(),
       attempt: attempt.toString()
     };
@@ -41,10 +39,7 @@ async function triggerGitHubWorkflow({
 
     const response = await axios.post(
       url,
-      {
-        ref: 'main',
-        inputs
-      },
+      { ref: 'main', inputs },
       {
         headers: {
           Authorization: `token ${GITHUB_TOKEN}`,
@@ -86,14 +81,11 @@ async function getWorkflowRun(runId) {
         Authorization: `token ${GITHUB_TOKEN}`,
         Accept: 'application/vnd.github.v3+json'
       },
-      params: {
-        per_page: 1
-      }
+      params: { per_page: 1 }
     });
 
     const runs = response.data.workflow_runs;
     if (runs.length === 0) return null;
-
     return runs[0];
   } catch (error) {
     console.error('❌ Error fetching workflow run:', error.message);
@@ -136,9 +128,7 @@ async function getActionsUsage() {
       },
       params: {
         per_page: 100,
-        created: `>${new Date(
-          Date.now() - 30 * 24 * 60 * 60 * 1000
-        ).toISOString()}`
+        created: `>${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()}`
       }
     });
 
